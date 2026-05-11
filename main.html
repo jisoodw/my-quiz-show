@@ -2,236 +2,67 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 퀴즈쇼 - 관리자 모드</title>
+    <title>🎬 실시간 퀴즈쇼 메인 스테이지</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
-        body { 
-            background: #fdfdfd; color: #333; font-family: 'Pretendard', sans-serif; 
-            text-align: center; margin: 0; padding: 20px; overflow: hidden;
-        }
-        #music-trigger {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: white; z-index: 2000; display: flex; justify-content: center; align-items: center;
-        }
-        /* 메인 레이아웃 */
-        .main-layout { display: flex; height: 82vh; gap: 30px; padding: 20px; }
-        .left-panel { flex: 2.5; display: flex; flex-direction: column; align-items: center; border-right: 2px solid #f0f0f0; }
-        .right-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 30px; border: 1px solid #eee; }
+        :root { --primary: #4e73df; --accent: #ff4757; --winner: #ffa502; }
+        body { background: #fdfdfd; color: #333; font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; padding: 0; overflow: hidden; }
+        
+        .page { display: none; padding: 40px; height: 100vh; box-sizing: border-box; }
+        .active { display: flex; flex-direction: column; align-items: center; }
 
-        .question-box { margin-top: 20px; width: 90%; }
-        #q-text { font-size: 48px; font-weight: 800; color: #1a1a2e; word-break: keep-all; margin-bottom: 20px; min-height: 120px; }
+        #music-trigger { position: fixed; top:0; left:0; width:100%; height:100%; background: white; z-index: 5000; display: flex; justify-content: center; align-items: center; }
+        .waiting-layout { display: flex; width: 100%; gap: 50px; justify-content: center; align-items: center; }
+        .user-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 350px; overflow-y: auto; padding: 20px; border: 1px solid #eee; border-radius: 20px; width: 60%; }
         
-        .qr-box { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .qr-box img { width: 200px; height: 200px; }
+        /* 퀴즈 진행 화면 보강 */
+        #q-text { font-size: 55px; font-weight: 800; margin: 20px 0; color: #1a1a2e; word-break: keep-all; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 80%; margin-top: 20px; }
+        .option-item { background: white; border: 3px solid var(--primary); padding: 25px; border-radius: 20px; font-size: 30px; font-weight: bold; color: var(--primary); text-align: left; }
+        .timer { font-size: 100px; color: var(--accent); font-weight: 900; margin: 10px 0; }
         
-        .timer { font-size: 110px; color: #ff4757; font-weight: 900; margin: 10px 0; }
-        .user-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-height: 200px; overflow-y: auto; width: 100%; }
-        .user-tag { background: #fff; padding: 8px 18px; border-radius: 20px; border: 1px solid #ddd; color: #555; font-size: 16px; }
-        
-        /* 하단 컨트롤 바 */
-        .control-panel { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: center; gap: 8px; padding: 15px; background: white; border-top: 1px solid #eee; }
-        button { padding: 10px 18px; font-size: 15px; cursor: pointer; border-radius: 10px; border: 1px solid #ddd; background: white; font-weight: 600; }
-        .btn-main { padding: 25px 50px; font-size: 28px; background: #4e73df; color: white; border: none; border-radius: 20px; cursor: pointer; }
-        
-        /* 관리자 수정 모드 팝업 */
-        #admin-modal {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: white; padding: 30px; border-radius: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-            z-index: 3000; width: 500px; max-height: 80vh; overflow-y: auto;
-        }
-        .admin-input-group { margin-bottom: 20px; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        input { width: 95%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; }
-        label { font-weight: bold; font-size: 14px; color: #4e73df; }
+        /* 결과 및 기타 */
+        .correct-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; max-height: 200px; overflow-y: auto; }
+        .user-tag { background: #eef2f7; padding: 10px 20px; border-radius: 25px; border: 1px solid #d1d8e0; font-weight: 600; }
+        .correct-tag { background: #d1f7d1; border-color: #2ed573; color: #1b5e20; }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; color: white; }
+        .modal-content { background: white; color: #333; padding: 40px; border-radius: 30px; width: 550px; max-height: 80vh; overflow-y: auto; }
+
+        .btn-blue { background: var(--primary); color: white; padding: 20px 40px; font-size: 24px; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; }
+        .control-bar { position: fixed; bottom: 20px; display: flex; gap: 10px; z-index: 1000; }
+        .btn-sub { background: #f1f2f6; color: #333; border: 1px solid #ddd; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="music-trigger">
-        <button class="btn-main" onclick="startShow()">🎮 퀴즈쇼 시작하기 (BGM ON)</button>
+        <button class="btn-blue" style="font-size: 40px;" onclick="startShow()">🎮 퀴즈쇼 시작하기 (BGM ON)</button>
     </div>
 
-    <div id="admin-modal">
-        <h2 style="margin-top:0">⚙️ 문제 내용 수정</h2>
-        <div id="admin-inputs">
+    <div id="page-waiting" class="page active">
+        <h1 style="font-size: 45px; color: var(--primary); margin-top: 0;">🎬 잠시 후 퀴즈쇼가 시작됩니다!</h1>
+        <div class="waiting-layout">
+            <div style="text-align: center;">
+                <img id="qr-img" src="" style="width: 250px; border: 10px solid white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <p style="font-size: 18px; font-weight: bold; margin-top: 15px;">스캔하여 입장하세요!</p>
             </div>
-        <button onclick="saveAndCloseAdmin()" style="background:#4e73df; color:white; width:100%; padding:15px; border:none; margin-top:10px;">저장하고 닫기</button>
-        <button onclick="toggleAdmin(false)" style="width:100%; margin-top:10px; border:none; background:none; color:gray;">취소</button>
-    </div>
-
-    <div class="main-layout">
-        <div class="left-panel">
-            <h2 id="stage-title" style="color: #4e73df; margin-bottom: 10px;">🎬 대기 중</h2>
-            <div class="question-box">
-                <div id="q-text">문제를 선택해 주세요</div>
-                <div id="timer-display" class="timer">--</div>
-            </div>
-            <div id="roulette-display" style="font-size:40px; font-weight:800; color:#ffa502; height:60px;"></div>
-            <h4 id="user-count" style="margin-bottom:10px;">입장 인원: 0명</h4>
-            <div id="user-display" class="user-list"></div>
+            <div class="user-grid" id="user-display"></div>
         </div>
+        <h2 id="user-count" style="margin-top: 20px;">입장 인원: 0명</h2>
+        <button class="btn-blue" style="margin-top: 15px;" onclick="goToQuiz(1)">게임 스타트! 🚀</button>
+    </div>
 
-        <div class="right-panel">
-            <h3 style="margin-bottom: 15px;">스마트폰으로 접속!</h3>
-            <div class="qr-box">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://jisoodw.github.io/my-quiz-show/index.html" alt="접속 QR코드">
+    <div id="page-quiz" class="page">
+        <h2 id="quiz-header" style="color: var(--primary); margin: 0;">1번 문제 진행 중</h2>
+        <div id="q-text">질문 내용이 표시됩니다.</div>
+        <div class="options-grid" id="screen-options">
             </div>
-            <p style="color: #aaa; font-weight: 500; margin-top: 15px;">QR 스캔 후 이름을 입력하세요</p>
-        </div>
+        <div id="timer-display" class="timer">20</div>
+        <h3 id="live-count">현재 참여 중: 0명</h3>
     </div>
 
-    <div class="control-panel">
-        <button onclick="toggleAdmin(true)" style="background:#f8f9fa;">⚙️ 문제 관리</button>
-        <div style="border-left: 1px solid #eee; margin: 0 10px;"></div>
-        <button onclick="runQuiz(1)">1번 시작</button>
-        <button onclick="runQuiz(2)">2번 시작</button>
-        <button onclick="runQuiz(3)">3번 시작</button>
-        <button onclick="spinRoulette('correct')" style="background: #2ed573; color: white; border: none;">🎯 정답자 추첨</button>
-        <button onclick="spinRoulette('everyone')" style="background: #ffa502; color: white; border: none;">🎁 행운상</button>
-    </div>
-
-    <audio id="bgm" src="audio/bgm.mp3" loop preload="auto"></audio>
-    <audio id="sfx_win" src="audio/success.mp3" preload="auto"></audio>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCAUursZJpOAMzBtl8HXapaeJRzzQ3TNBo",
-            authDomain: "quiz-show-9a233.firebaseapp.com",
-            projectId: "quiz-show-9a233",
-            storageBucket: "quiz-show-9a233.firebasestorage.app",
-            messagingSenderId: "311396328751",
-            appId: "1:311396328751:web:9220be4591d77aa88f2dda"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        let currentCorrectAns = 0;
-        let currentQNum = 0;
-        let quizData = {};
-
-        // 기본값 세팅
-        const defaultData = {
-            1: { q: "첫 번째 문제를 입력하세요", options: ["보기1", "보기2", "보기3", "보기4"], ans: 1, time: 20 },
-            2: { q: "두 번째 문제를 입력하세요", options: ["보기1", "보기2", "보기3", "보기4"], ans: 1, time: 20 },
-            3: { q: "세 번째 문제를 입력하세요", options: ["보기1", "보기2", "보기3", "보기4"], ans: 1, time: 20 }
-        };
-
-        // 데이터 로드
-        async function loadQuizData() {
-            const doc = await db.collection("quiz_settings").doc("questions").get();
-            if (doc.exists) {
-                quizData = doc.data();
-            } else {
-                quizData = defaultData;
-            }
-            renderAdminInputs();
-        }
-
-        function renderAdminInputs() {
-            let html = "";
-            for (let i = 1; i <= 3; i++) {
-                html += `<div class="admin-input-group">
-                    <label>${i}번 문제 질문</label>
-                    <input type="text" id="q${i}-text" value="${quizData[i].q}">
-                    <label>${i}번 보기 (쉼표로 구분: 예-사과,배,포도,귤)</label>
-                    <input type="text" id="q${i}-opts" value="${quizData[i].options.join(',')}">
-                    <label>${i}번 정답 번호 (1~4)</label>
-                    <input type="number" id="q${i}-ans" value="${quizData[i].ans}" min="1" max="4">
-                </div>`;
-            }
-            document.getElementById('admin-inputs').innerHTML = html;
-        }
-
-        async function saveAndCloseAdmin() {
-            for (let i = 1; i <= 3; i++) {
-                quizData[i] = {
-                    q: document.getElementById(`q${i}-text`).value,
-                    options: document.getElementById(`q${i}-opts`).value.split(','),
-                    ans: parseInt(document.getElementById(`q${i}-ans`).value),
-                    time: 20
-                };
-            }
-            await db.collection("quiz_settings").doc("questions").set(quizData);
-            alert("저장되었습니다!");
-            toggleAdmin(false);
-        }
-
-        function toggleAdmin(show) {
-            document.getElementById('admin-modal').style.display = show ? 'block' : 'none';
-        }
-
-        function startShow() {
-            document.getElementById('bgm').volume = 0.3;
-            document.getElementById('bgm').play();
-            document.getElementById('music-trigger').style.display = 'none';
-            loadQuizData();
-        }
-
-        db.collection("participants").orderBy("joinedAt", "desc").onSnapshot((snapshot) => {
-            const display = document.getElementById('user-display');
-            display.innerHTML = "";
-            document.getElementById('user-count').innerText = `입장 인원: ${snapshot.size}명`;
-            snapshot.forEach((doc) => {
-                display.innerHTML += `<div class="user-tag">${doc.data().name}</div>`;
-            });
-        });
-
-        async function runQuiz(qNum) {
-            const data = quizData[qNum];
-            currentCorrectAns = data.ans;
-            currentQNum = qNum;
-            
-            document.getElementById('q-text').innerText = `Q${qNum}. ${data.q}`;
-            document.getElementById('stage-title').innerText = "문제가 시작되었습니다!";
-            document.getElementById('roulette-display').innerText = "";
-
-            await db.collection("game").doc("state").set({ 
-                status: "playing", 
-                currentQ: qNum,
-                question: data.q,
-                options: data.options
-            });
-            
-            let timeLeft = data.time;
-            const timerInterval = setInterval(() => {
-                document.getElementById('timer-display').innerText = timeLeft;
-                if(timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    finishQuestion();
-                }
-                timeLeft--;
-            }, 1000);
-        }
-
-        async function finishQuestion() {
-            await db.collection("game").doc("state").update({ status: "waiting" });
-            document.getElementById('stage-title').innerText = "시간 종료!";
-            document.getElementById('timer-display').innerText = "DONE";
-        }
-
-        async function spinRoulette(type) {
-            const snap = await db.collection("participants").get();
-            let candidates = [];
-            snap.forEach(doc => {
-                const user = doc.data();
-                if(type === 'correct' && user[`ans${currentQNum}`] == currentCorrectAns) candidates.push(user.name);
-                else if(type === 'everyone') candidates.push(user.name);
-            });
-
-            if(candidates.length === 0) return alert("대상자가 없습니다!");
-
-            let count = 0;
-            const spin = setInterval(() => {
-                document.getElementById('roulette-display').innerText = "🎲 " + candidates[count % candidates.length];
-                count++;
-                if(count > 25) {
-                    clearInterval(spin);
-                    const winner = candidates[Math.floor(Math.random() * candidates.length)];
-                    document.getElementById('roulette-display').innerHTML = `🎊 <span style="color:#4e73df">${winner}</span>님 당첨! 🎊`;
-                    document.getElementById('sfx_win').play();
-                }
-            }, 80);
-        }
-    </script>
-</body>
-</html>
+    <div id="page-result" class="page">
+        <h1 id="result-title" style="margin: 0;">정답 공개!</h1>
+        <h2 id="correct-answer-text" style="font-size: 35px; background: #f1f2f6; padding:
