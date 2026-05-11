@@ -3,36 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>퀴즈쇼 참여하기</title>
+    <title>퀴즈 참여</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 20px; background: #f8f9fa; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-        input { width: 80%; padding: 15px; margin: 20px 0; border: 2px solid #eee; border-radius: 10px; font-size: 18px; }
-        button { width: 100%; padding: 15px; border-radius: 10px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 20px; background: #f5f6fa; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 20px; }
+        input { width: 90%; padding: 15px; margin: 15px 0; border: 2px solid #eee; border-radius: 15px; font-size: 18px; outline: none; }
+        button { width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
         .btn-join { background: #4e73df; color: white; }
-        .quiz-option { background: white; border: 2px solid #4e73df; color: #4e73df; margin-bottom: 10px; height: 80px; }
-        .quiz-option:active { background: #4e73df; color: white; }
-        #waiting-msg { color: #888; font-size: 18px; margin-top: 50px; }
+        .opt-btn { background: white; border: 2px solid #4e73df; color: #4e73df; margin-bottom: 12px; font-size: 18px; text-align: left; padding-left: 25px; }
+        .opt-btn:active { background: #4e73df; color: white; }
+        #status-text { font-weight: 600; color: #4e73df; margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div id="login-section" class="card">
-        <h2>이름을 입력해주세요!</h2>
+        <h2>환영합니다! 👋</h2>
+        <p>이름을 입력하고 입장해주세요</p>
         <input type="text" id="userName" placeholder="성함 입력">
-        <button class="btn-join" onclick="joinGame()">입장하기</button>
+        <button class="btn-join" onclick="joinGame()">퀴즈쇼 입장하기</button>
     </div>
 
-    <div id="quiz-section" style="display:none;">
-        <h2 id="question-number">준비 중...</h2>
-        <div id="options-area" style="display:none;">
-            <button class="quiz-option" onclick="submitAnswer(1)">1번</button>
-            <button class="quiz-option" onclick="submitAnswer(2)">2번</button>
-            <button class="quiz-option" onclick="submitAnswer(3)">3번</button>
-            <button class="quiz-option" onclick="submitAnswer(4)">4번</button>
-        </div>
-        <p id="waiting-msg">주최자가 문제를 시작할 때까지 기다려주세요!</p>
+    <div id="quiz-section" style="display:none;" class="card">
+        <div id="status-text">준비 중...</div>
+        <div id="options-area"></div>
     </div>
 
     <script>
@@ -52,7 +47,7 @@
         async function joinGame() {
             myName = document.getElementById('userName').value;
             if(!myName) return alert("이름을 입력하세요!");
-            await db.collection("participants").doc(myName).set({ name: myName, correctCount: 0, joinedAt: new Date() });
+            await db.collection("participants").doc(myName).set({ name: myName, joinedAt: new Date() });
             document.getElementById('login-section').style.display = 'none';
             document.getElementById('quiz-section').style.display = 'block';
             listenGame();
@@ -61,14 +56,16 @@
         function listenGame() {
             db.collection("game").doc("state").onSnapshot((doc) => {
                 const data = doc.data();
+                const area = document.getElementById('options-area');
                 if(data.status === "playing") {
-                    document.getElementById('question-number').innerText = data.currentQ + "번 문제 시작!";
-                    document.getElementById('options-area').style.display = 'block';
-                    document.getElementById('waiting-msg').style.display = 'none';
+                    document.getElementById('status-text').innerText = "문제가 시작되었습니다! 정답을 고르세요.";
+                    area.innerHTML = "";
+                    data.options.forEach((opt, index) => {
+                        area.innerHTML += `<button class="opt-btn" onclick="submitAnswer(${index + 1})">${index + 1}. ${opt}</button>`;
+                    });
                 } else {
-                    document.getElementById('options-area').style.display = 'none';
-                    document.getElementById('waiting-msg').style.display = 'block';
-                    document.getElementById('waiting-msg').innerText = "결과 확인 중...";
+                    document.getElementById('status-text').innerText = "스크린의 결과를 확인해주세요!";
+                    area.innerHTML = "";
                 }
             });
         }
@@ -77,8 +74,8 @@
             const stateDoc = await db.collection("game").doc("state").get();
             const currentQ = stateDoc.data().currentQ;
             await db.collection("participants").doc(myName).update({ [`ans${currentQ}`]: num });
-            alert(num + "번을 선택했습니다!");
-            document.getElementById('options-area').style.display = 'none';
+            alert(num + "번 정답을 제출했습니다!");
+            document.getElementById('options-area').innerHTML = "<h3>제출 완료! 기다려주세요.</h3>";
         }
     </script>
 </body>
