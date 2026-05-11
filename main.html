@@ -10,7 +10,6 @@
         body { background: #fdfdfd; color: #333; font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; padding: 0; overflow: hidden; }
         
         .page { display: none; padding: 2vh 5vw; height: 100vh; box-sizing: border-box; }
-        /* justify-content: center; 를 추가하여 화면 상하 정중앙에 배치되도록 수정했습니다. */
         .active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
         /* 쇼 시작하기 전 덮개 */
@@ -19,23 +18,22 @@
             background: white; z-index: 9999; display: flex; justify-content: center; align-items: center; 
         }
         
-        /* 14인치 노트북과 26인치 모니터 모두에서 조화롭도록 반응형 크기(vh, vw, %)를 부분 적용했습니다. */
         .waiting-layout { display: flex; width: 100%; gap: 4vw; justify-content: center; align-items: center; }
         .user-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 40vh; overflow-y: auto; padding: 20px; border: 1px solid #eee; border-radius: 20px; width: 60%; background: #fcfcfc; }
         
-        #q-text { font-size: clamp(35px, 4vw, 55px); font-weight: 800; margin: 20px 0; color: #1a1a2e; word-break: keep-all; }
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vh; width: 85%; margin-top: 20px; }
-        .option-item { background: white; border: 3px solid var(--primary); padding: 3vh 2vw; border-radius: 20px; font-size: clamp(24px, 2.5vw, 32px); font-weight: bold; color: var(--primary); text-align: left; }
-        .timer { font-size: clamp(70px, 8vw, 100px); color: var(--accent); font-weight: 900; margin: 1vh 0; }
+        #q-text { font-size: clamp(35px, 4.5vw, 55px); font-weight: 800; margin: 2vh 0; color: #1a1a2e; word-break: keep-all; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5vh; width: 85%; margin-top: 20px; }
+        .option-item { background: white; border: 3px solid var(--primary); padding: 3vh 2vw; border-radius: 20px; font-size: clamp(24px, 2.8vw, 32px); font-weight: bold; color: var(--primary); text-align: left; }
+        .timer { font-size: clamp(80px, 10vw, 120px); color: var(--accent); font-weight: 900; margin: 1vh 0; line-height: 1; }
         
-        .correct-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; max-height: 25vh; overflow-y: auto; }
+        .correct-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; max-height: 25vh; overflow-y: auto; width: 90%; }
         .user-tag { background: #eef2f7; padding: 10px 20px; border-radius: 25px; border: 1px solid #d1d8e0; font-weight: 600; font-size: 16px; }
         .correct-tag { background: #d1f7d1; border-color: #2ed573; color: #1b5e20; }
 
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 4000; justify-content: center; align-items: center; color: white; }
         .modal-content { background: white; color: #333; padding: 40px; border-radius: 30px; width: 550px; max-width: 90vw; }
 
-        .btn-blue { background: var(--primary); color: white; padding: 2vh 3vw; font-size: clamp(18px, 2vw, 26px); border: none; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 10px 20px rgba(78,115,223,0.2); }
+        .btn-blue { background: var(--primary); color: white; padding: 2vh 3vw; font-size: clamp(18px, 2.2vw, 26px); border: none; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 10px 20px rgba(78,115,223,0.2); }
         .control-bar { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 1000; }
         .btn-sub { background: #f1f2f6; color: #333; border: 1px solid #ddd; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
     </style>
@@ -47,16 +45,16 @@
     </div>
 
     <div id="page-waiting" class="page active">
-        <h1 style="font-size: clamp(30px, 4vw, 45px); color: var(--primary); margin: 0 0 2vh 0;">🎬 잠시 후 퀴즈쇼가 시작됩니다!</h1>
+        <h1 style="font-size: clamp(30px, 4vw, 45px); color: var(--primary); margin: 0 0 3vh 0;">🎬 잠시 후 퀴즈쇼가 시작됩니다!</h1>
         <div class="waiting-layout">
             <div style="text-align: center;">
-                <img id="qr-img" src="" style="width: 25vh; min-width: 180px; border: 10px solid white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <img id="qr-img" src="" style="width: 28vh; min-width: 180px; border: 10px solid white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
                 <p style="font-size: 18px; font-weight: bold; margin-top: 15px;">QR을 스캔하여 입장하세요!</p>
             </div>
             <div class="user-grid" id="user-display"></div>
         </div>
-        <h2 id="user-count" style="margin-top: 2vh;">입장 인원: 0명</h2>
-        <button class="btn-blue" style="margin-top: 2vh;" onclick="goToQuiz(1)">게임 스타트! 🚀</button>
+        <h2 id="user-count" style="margin-top: 3vh;">입장 인원: 0명</h2>
+        <button class="btn-blue" style="margin-top: 3vh;" onclick="goToQuiz(1)">게임 스타트! 🚀</button>
     </div>
 
     <div id="page-quiz" class="page">
@@ -64,15 +62,15 @@
         <div id="q-text">질문을 불러오는 중...</div>
         <div class="options-grid" id="screen-options"></div>
         <div id="timer-display" class="timer">20</div>
-        <h3 id="live-count" style="margin: 0;">참여 인원: 0명</h3>
+        <h3 id="live-count" style="margin: 1vh 0 0 0;">참여 인원: 0명</h3>
     </div>
 
     <div id="page-result" class="page">
         <h1 id="result-title" style="margin: 0; font-size: 40px;">정답 공개!</h1>
-        <h2 id="correct-answer-text" style="font-size: clamp(24px, 3vw, 35px); background: #f1f2f6; padding: 2.5vh; border-radius: 25px; width: 85%; margin-top: 2vh;">정답: 1번</h2>
-        <h3 style="margin-top: 3vh; font-size: 24px;">🏆 이번 문제 정답자 명단 🏆</h3>
+        <h2 id="correct-answer-text" style="font-size: clamp(24px, 3.5vw, 35px); background: #f1f2f6; padding: 3vh; border-radius: 25px; width: 85%; margin-top: 2vh;">정답 확인 중...</h2>
+        <h3 style="margin-top: 4vh; font-size: 24px;">🏆 이번 문제 정답자 명단 🏆</h3>
         <div class="correct-list" id="correct-users"></div>
-        <div style="margin-top: 4vh; display: flex; gap: 15px;">
+        <div style="margin-top: 5vh; display: flex; gap: 15px;">
             <button class="btn-blue" style="background: var(--winner);" onclick="openRoulette('correct')">🎰 정답자 추첨</button>
             <button class="btn-blue" id="next-btn" onclick="goToQuiz(2)">다음 문제로 ➡️</button>
             <button class="btn-blue" id="final-btn" style="display:none;" onclick="showFinalResult()">전체 결과 보기 🏁</button>
@@ -80,17 +78,17 @@
     </div>
 
     <div id="page-final" class="page">
-        <h1 style="font-size: 50px; color: var(--primary); margin: 0;">🏁 퀴즈쇼 종료!</h1>
-        <div style="display: flex; gap: 40px; width: 100%; justify-content: center; margin-top: 4vh;">
-            <div style="flex: 1;">
+        <h1 style="font-size: clamp(40px, 5vw, 55px); color: var(--primary); margin: 0 0 2vh 0;">🏁 퀴즈쇼 종료!</h1>
+        <div style="display: flex; gap: 40px; width: 100%; justify-content: center; margin-top: 2vh;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                 <h3 style="font-size: 24px;">💯 3문제 전참 만점자</h3>
                 <div class="correct-list" id="all-correct-users"></div>
-                <button class="btn-blue" style="margin-top: 2vh; background: var(--winner);" onclick="openRoulette('all')">🎰 만점자 추첨</button>
+                <button class="btn-blue" style="margin-top: 3vh; background: var(--winner);" onclick="openRoulette('all')">🎰 만점자 추첨</button>
             </div>
-            <div style="flex: 1; border-left: 1px solid #eee;">
+            <div style="flex: 1; border-left: 2px solid #eee; display: flex; flex-direction: column; align-items: center;">
                 <h3 style="font-size: 24px;">🎁 행운권 추첨 (전체)</h3>
                 <div class="correct-list" id="everyone-list"></div>
-                <button class="btn-blue" style="margin-top: 2vh; background: var(--primary);" onclick="openRoulette('everyone')">🎰 행운상 추첨</button>
+                <button class="btn-blue" style="margin-top: 3vh; background: var(--primary);" onclick="openRoulette('everyone')">🎰 행운상 추첨</button>
             </div>
         </div>
     </div>
@@ -98,8 +96,8 @@
     <div id="roulette-modal" class="modal">
         <div class="modal-content">
             <h2 id="roulette-title">추첨 중...</h2>
-            <div id="roulette-name" style="font-size: 60px; font-weight: 900; margin: 40px 0; color: var(--primary);">? ? ?</div>
-            <button class="btn-sub" style="padding: 15px 30px; font-size: 18px;" onclick="closeRoulette()">창 닫기</button>
+            <div id="roulette-name" style="font-size: 65px; font-weight: 900; margin: 45px 0; color: var(--primary);">? ? ?</div>
+            <button class="btn-sub" style="padding: 15px 35px; font-size: 18px; font-weight: bold;" onclick="closeRoulette()">창 닫기</button>
         </div>
     </div>
 
@@ -110,7 +108,7 @@
     <div id="admin-modal" class="modal">
         <div class="modal-content" style="text-align: left; width: 500px;">
             <h2 style="margin-top:0; color: #333;">⚙️ 관리자 도구</h2>
-            <div id="admin-inputs" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+            <div id="admin-inputs" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
             <button onclick="saveAdmin()" style="width:100%; background: var(--primary); color:white; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">문항 저장하기</button>
             <button onclick="resetParticipants()" style="width:100%; background: var(--accent); color:white; padding:15px; border:none; border-radius:10px; margin-top:10px; cursor:pointer;">⚠️ 참여자 전체 삭제</button>
             <button onclick="toggleAdmin()" style="width:100%; margin-top:10px; border:none; background:none; color:gray; cursor:pointer;">닫기</button>
@@ -139,14 +137,12 @@
 
         function startShow() {
             document.getElementById('music-trigger').style.display = 'none';
-            
             try {
                 document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://jisoodw.github.io/my-quiz-show/index.html`;
                 const bgm = document.getElementById('bgm');
                 bgm.volume = 0.3;
-                bgm.play().catch(e => console.log("음악 자동재생 차단됨"));
-            } catch(e) { console.log("초기 설정 오류 무시:", e); }
-
+                bgm.play().catch(e => console.log("음악 재생 차단됨"));
+            } catch(e) { console.log("초기화 오류:", e); }
             loadQuizData();
             listenParticipants();
         }
@@ -166,34 +162,27 @@
                 snap.forEach(doc => {
                     list.innerHTML += `<div class="user-tag">${doc.id}</div>`;
                 });
-            }, err => console.log("Firestore 연결 실패:", err));
+            });
         }
 
         async function goToQuiz(qNum) {
             clearInterval(timerInterval);
             currentQNum = qNum;
             const data = quizData[qNum] || { q: "문제를 설정해주세요", options: ["1","2","3","4"], ans: 1 };
-            
             showPage('page-quiz');
             document.getElementById('quiz-header').innerText = `${qNum}번 문제 진행 중`;
             document.getElementById('q-text').innerText = data.q;
-            
             const optGrid = document.getElementById('screen-options');
             optGrid.innerHTML = "";
             data.options.forEach((opt, idx) => {
                 optGrid.innerHTML += `<div class="option-item">${idx+1}. ${opt}</div>`;
             });
-
             await db.collection("game").doc("state").set({ status: "playing", currentQ: qNum, options: data.options });
-
             let time = 20;
             const timerDisplay = document.getElementById('timer-display');
             timerInterval = setInterval(() => {
                 timerDisplay.innerText = time;
-                if(time <= 0) {
-                    clearInterval(timerInterval);
-                    showResult();
-                }
+                if(time <= 0) { clearInterval(timerInterval); showResult(); }
                 time--;
             }, 1000);
         }
@@ -203,7 +192,6 @@
             showPage('page-result');
             const data = quizData[currentQNum] || { ans: 1, options: ["?"] };
             document.getElementById('correct-answer-text').innerText = `정답: ${data.ans}번 (${data.options[data.ans-1]})`;
-            
             const snap = await db.collection("participants").get();
             const correctBox = document.getElementById('correct-users');
             correctBox.innerHTML = "";
@@ -212,56 +200,76 @@
                     correctBox.innerHTML += `<div class="user-tag correct-tag">${doc.id}</div>`;
                 }
             });
-
             if(currentQNum >= 3) {
                 document.getElementById('next-btn').style.display = 'none';
                 document.getElementById('final-btn').style.display = 'block';
             } else {
                 document.getElementById('next-btn').style.display = 'block';
+                document.getElementById('final-btn').style.display = 'none';
                 document.getElementById('next-btn').onclick = () => goToQuiz(currentQNum + 1);
             }
         }
 
+        async function showFinalResult() {
+            showPage('page-final');
+            const snap = await db.collection("participants").get();
+            const allBox = document.getElementById('all-correct-users');
+            const everyBox = document.getElementById('everyone-list');
+            allBox.innerHTML = ""; everyBox.innerHTML = "";
+            
+            // 안전하게 정답 정보를 가져오는 로직 (에러 방지)
+            const ans1 = quizData[1] ? quizData[1].ans : null;
+            const ans2 = quizData[2] ? quizData[2].ans : null;
+            const ans3 = quizData[3] ? quizData[3].ans : null;
+
+            snap.forEach(doc => {
+                const u = doc.data();
+                everyBox.innerHTML += `<div class="user-tag">${doc.id}</div>`;
+                // 3문제를 모두 맞힌 사람 체크 (데이터가 있을 때만 비교)
+                if(ans1 && ans2 && ans3) {
+                    if(u.ans1 == ans1 && u.ans2 == ans2 && u.ans3 == ans3) {
+                        allBox.innerHTML += `<div class="user-tag correct-tag">${doc.id}</div>`;
+                    }
+                }
+            });
+        }
+
         async function openRoulette(type) {
-            document.getElementById('roulette-modal').style.display = 'flex';
             const snap = await db.collection("participants").get();
             let candidates = [];
+            const ans1 = quizData[1] ? quizData[1].ans : null;
+            const ans2 = quizData[2] ? quizData[2].ans : null;
+            const ans3 = quizData[3] ? quizData[3].ans : null;
+
             snap.forEach(doc => {
                 if(winners.has(doc.id)) return;
-                if(type === 'correct' && doc.data()[`ans${currentQNum}`] == quizData[currentQNum].ans) candidates.push(doc.id);
-                else if(type === 'all') {
-                    const u = doc.data();
-                    if(u.ans1 == quizData[1].ans && u.ans2 == quizData[2].ans && u.ans3 == quizData[3].ans) candidates.push(doc.id);
+                const u = doc.data();
+                if(type === 'correct' && u[`ans${currentQNum}`] == quizData[currentQNum].ans) candidates.push(doc.id);
+                else if(type === 'all' && ans1 && ans2 && ans3) {
+                    if(u.ans1 == ans1 && u.ans2 == ans2 && u.ans3 == ans3) candidates.push(doc.id);
                 }
                 else if(type === 'everyone') candidates.push(doc.id);
             });
 
-            if(candidates.length === 0) { 
-                alert("추첨 대상이 없습니다!"); 
-                return closeRoulette(); 
-            }
+            if(candidates.length === 0) { alert("추첨 대상이 없습니다!"); return; }
 
-            // [오디오 제어 1] 메인 BGM 일시정지 및 드럼 소리 재생
+            document.getElementById('roulette-modal').style.display = 'flex';
             const bgm = document.getElementById('bgm');
             bgm.pause();
-            
             const drum = document.getElementById('sfx_drum');
             drum.currentTime = 0;
-            drum.play().catch(e => console.log("드럼 오디오 재생 오류:", e));
+            drum.play().catch(e => {});
 
             let count = 0;
             const spin = setInterval(() => {
                 document.getElementById('roulette-name').innerText = candidates[count % candidates.length];
                 count++;
-                
-                // 80ms 간격으로 50번 실행 = 정확히 4초(4000ms) 대기
-                if(count >= 50) {
+                if(count >= 50) { // 80ms * 50 = 4초
                     clearInterval(spin);
                     const winner = candidates[Math.floor(Math.random() * candidates.length)];
                     document.getElementById('roulette-name').innerText = winner;
                     document.getElementById('roulette-title').innerText = "🎊 당첨을 축하합니다! 🎊";
                     winners.add(winner);
-                    // 성공 효과음은 drum.mp3에 포함되어 있으므로 추가 재생 생략
                 }
             }, 80);
         }
@@ -269,13 +277,8 @@
         function closeRoulette() { 
             document.getElementById('roulette-modal').style.display = 'none'; 
             document.getElementById('roulette-title').innerText = "추첨 중..."; 
-            
-            // [오디오 제어 2] 혹시 드럼이 덜 끝났으면 정지하고, 멈춰둔 메인 BGM 이어서 재생
-            const drum = document.getElementById('sfx_drum');
-            drum.pause();
-            
-            const bgm = document.getElementById('bgm');
-            bgm.play().catch(e => console.log("BGM 재생 오류:", e));
+            document.getElementById('sfx_drum').pause();
+            document.getElementById('bgm').play().catch(e => {});
         }
 
         function toggleAdmin() { const m = document.getElementById('admin-modal'); m.style.display = (m.style.display === 'flex') ? 'none' : 'flex'; }
@@ -283,29 +286,18 @@
         async function loadQuizData() {
             try {
                 const doc = await db.collection("quiz_settings").doc("questions").get();
-                quizData = doc.exists ? doc.data() : {
-                    1: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
-                    2: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
-                    3: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 }
-                };
+                if(doc.exists) quizData = doc.data();
                 renderAdmin();
-            } catch(e) { 
-                console.log("데이터 로드 오류:", e); 
-                quizData = {
-                    1: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
-                    2: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
-                    3: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 }
-                };
-                renderAdmin();
-            }
+            } catch(e) { console.log("데이터 로드 실패:", e); }
         }
 
         function renderAdmin() {
             let h = "";
             for(let i=1; i<=3; i++) {
-                h += `<div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;"><b>${i}번 문제</b><br><input id="aq${i}" value="${quizData[i].q}" style="width:95%;"><br>
-                <input id="ao${i}" value="${quizData[i].options.join(',')}" style="width:95%; margin-top:3px;"><br>
-                정답(1-4): <input type="number" id="aa${i}" value="${quizData[i].ans}" style="width:40px;"></div>`;
+                const q = quizData[i] || {q:"", options:["","","",""], ans:1};
+                h += `<div style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;"><b>${i}번 문제</b><br><input id="aq${i}" value="${q.q}" placeholder="질문" style="width:95%;"><br>
+                <input id="ao${i}" value="${q.options.join(',')}" placeholder="보기1,보기2,보기3,보기4" style="width:95%; margin-top:5px;"><br>
+                정답(1-4): <input type="number" id="aa${i}" value="${q.ans}" style="width:50px;"></div>`;
             }
             document.getElementById('admin-inputs').innerHTML = h;
         }
