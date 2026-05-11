@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>실시간 퀴즈쇼 스크린</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        body { background: #1a1a2e; color: white; font-family: sans-serif; text-align: center; }
+        .container { padding: 50px; }
+        .timer { font-size: 80px; color: #e94560; font-weight: bold; }
+        .roulette-box { background: white; color: black; padding: 20px; border-radius: 20px; min-height: 100px; font-size: 30px; margin: 20px; }
+        button { padding: 15px 30px; margin: 5px; font-size: 18px; cursor: pointer; border-radius: 10px; }
+        .winner-name { font-size: 50px; color: #f9d423; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="stage-title">🎬 퀴즈쇼 대기 중</h1>
+        <div id="timer-display" class="timer">00</div>
+        <div id="roulette-display" class="roulette-box">참여자를 기다리는 중...</div>
+        <div id="winner-display" class="winner-name"></div>
+
+        <div style="margin-top: 50px;">
+            <button onclick="controlGame('start', 1, 20, 2)">1번 문제 시작 (정답 2번)</button>
+            <button onclick="controlGame('start', 2, 15, 4)">2번 문제 시작 (정답 4번)</button>
+            <button onclick="controlGame('start', 3, 10, 1)">3번 문제 시작 (정답 1번)</button>
+            <hr>
+            <button onclick="spinRoulette('correct')">정답자 중 추첨</button>
+            <button onclick="spinRoulette('all')">3문제 다 맞힌 사람 추첨</button>
+            <button onclick="spinRoulette('everyone')">전체 행운권 추첨</button>
+        </div>
+    </div>
+
+    <audio id="bgm" src="audio/bgm.mp3" loop></audio>
+    <audio id="sfx_win" src="audio/success.mp3"></audio>
+
+    <script>
+        const firebaseConfig = { /* 위와 동일한 설정값 */ };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentCorrectAns = 0;
+        let currentQNum = 0;
+
+        async function controlGame(status, qNum, time, ans) {
+            document.getElementById('bgm').play();
+            currentCorrectAns = ans;
+            currentQNum = qNum;
+            await db.collection("game").doc("state").set({ status: "playing", currentQ: qNum });
+            
+            let timeLeft = time;
+            const timerInterval = setInterval(() => {
+                document.getElementById('timer-display').innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    finishQuestion();
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        async function finishQuestion() {
+            await db.collection("game").doc("state").update({ status: "waiting" });
+            alert(currentQNum + "번 문제 종료! 정답은 " + currentCorrectAns + "번입니다.");
+        }
+
+        async function spinRoulette(type) {
+            const snap = await db.collection("participants").get();
+            let candidates = [];
+            
+            snap.forEach(doc => {
+                const user = doc.data();
+                if(type === 'correct' && user[`ans${currentQNum}`] == currentCorrectAns) candidates.push(user.name);
+                else if(type === 'all' && (user.ans1==2 && user.ans2==4 && user.ans3==1)) candidates.push(user.name);
+                else if(type === 'everyone') candidates.push(user.name);
+            });
+
+            if(candidates.length === 0) return alert("추첨 대상자가 없습니다!");
+
+            let count = 0;
+            const spin = setInterval(() => {
+                document.getElementById('roulette-display').innerText = candidates[count % candidates.length];
+                count++;
+                if(count > 20) {
+                    clearInterval(spin);
+                    const winner = candidates[Math.floor(Math.random() * candidates.length)];
+                    document.getElementById('winner-display').innerText = "🎊 당첨: " + winner + " 🎊";
+                    document.getElementById('sfx_win').play();
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>

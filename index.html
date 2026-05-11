@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퀴즈쇼 참여하기</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 20px; background: #f8f9fa; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        input { width: 80%; padding: 15px; margin: 20px 0; border: 2px solid #eee; border-radius: 10px; font-size: 18px; }
+        button { width: 100%; padding: 15px; border-radius: 10px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-join { background: #4e73df; color: white; }
+        .quiz-option { background: white; border: 2px solid #4e73df; color: #4e73df; margin-bottom: 10px; height: 80px; }
+        .quiz-option:active { background: #4e73df; color: white; }
+        #waiting-msg { color: #888; font-size: 18px; margin-top: 50px; }
+    </style>
+</head>
+<body>
+    <div id="login-section" class="card">
+        <h2>이름을 입력해주세요!</h2>
+        <input type="text" id="userName" placeholder="성함 입력">
+        <button class="btn-join" onclick="joinGame()">입장하기</button>
+    </div>
+
+    <div id="quiz-section" style="display:none;">
+        <h2 id="question-number">준비 중...</h2>
+        <div id="options-area" style="display:none;">
+            <button class="quiz-option" onclick="submitAnswer(1)">1번</button>
+            <button class="quiz-option" onclick="submitAnswer(2)">2번</button>
+            <button class="quiz-option" onclick="submitAnswer(3)">3번</button>
+            <button class="quiz-option" onclick="submitAnswer(4)">4번</button>
+        </div>
+        <p id="waiting-msg">주최자가 문제를 시작할 때까지 기다려주세요!</p>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAUursZJpOAMzBtl8HXapaeJRzzQ3TNBo",
+            authDomain: "quiz-show-9a233.firebaseapp.com",
+            projectId: "quiz-show-9a233",
+            storageBucket: "quiz-show-9a233.firebasestorage.app",
+            messagingSenderId: "311396328751",
+            appId: "1:311396328751:web:9220be4591d77aa88f2dda"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let myName = "";
+
+        async function joinGame() {
+            myName = document.getElementById('userName').value;
+            if(!myName) return alert("이름을 입력하세요!");
+            await db.collection("participants").doc(myName).set({ name: myName, correctCount: 0, joinedAt: new Date() });
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('quiz-section').style.display = 'block';
+            listenGame();
+        }
+
+        function listenGame() {
+            db.collection("game").doc("state").onSnapshot((doc) => {
+                const data = doc.data();
+                if(data.status === "playing") {
+                    document.getElementById('question-number').innerText = data.currentQ + "번 문제 시작!";
+                    document.getElementById('options-area').style.display = 'block';
+                    document.getElementById('waiting-msg').style.display = 'none';
+                } else {
+                    document.getElementById('options-area').style.display = 'none';
+                    document.getElementById('waiting-msg').style.display = 'block';
+                    document.getElementById('waiting-msg').innerText = "결과 확인 중...";
+                }
+            });
+        }
+
+        async function submitAnswer(num) {
+            const stateDoc = await db.collection("game").doc("state").get();
+            const currentQ = stateDoc.data().currentQ;
+            await db.collection("participants").doc(myName).update({ [`ans${currentQ}`]: num });
+            alert(num + "번을 선택했습니다!");
+            document.getElementById('options-area').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
