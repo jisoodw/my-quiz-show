@@ -7,71 +7,80 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         body { 
-            background: #1a1a2e; color: white; font-family: 'Pretendard', sans-serif; 
+            background: #fdfdfd; color: #333; font-family: 'Pretendard', -apple-system, sans-serif; 
             text-align: center; margin: 0; padding: 20px; overflow: hidden;
         }
-        /* 첫 음악 시작 레이어 */
         #music-trigger {
             position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(26, 26, 46, 0.95); z-index: 1000;
-            display: flex; justify-content: center; align-items: center;
+            background: white; z-index: 1000; display: flex; justify-content: center; align-items: center;
         }
-        /* 메인 레이아웃: 왼쪽(접속자/타이머), 오른쪽(QR코드) */
-        .main-layout { display: flex; height: 80vh; gap: 20px; padding: 20px; }
-        .left-panel { flex: 2; display: flex; flex-direction: column; align-items: center; }
-        .right-panel { flex: 1; background: rgba(255,255,255,0.05); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .main-layout { display: flex; height: 85vh; gap: 30px; padding: 20px; }
+        .left-panel { flex: 2.5; display: flex; flex-direction: column; align-items: center; border-right: 2px solid #eee; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 30px; }
 
-        .qr-box { background: white; padding: 15px; border-radius: 15px; }
-        .qr-box img { width: 250px; height: 250px; }
+        .question-box { margin-top: 20px; width: 90%; }
+        #q-text { font-size: 50px; font-weight: 800; color: #1a1a2e; word-break: keep-all; margin-bottom: 30px; }
         
-        .timer { font-size: 100px; color: #e94560; font-weight: bold; margin: 20px 0; }
-        .user-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; overflow-y: auto; max-height: 400px; width: 100%; }
-        .user-tag { background: #16213e; padding: 10px 20px; border-radius: 25px; border: 1px solid #4e73df; font-size: 18px; animation: popIn 0.3s ease-out; }
+        .qr-box { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .qr-box img { width: 220px; height: 220px; }
         
-        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-
-        .control-panel { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 10px; }
-        button { padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 10px; border: none; background: #4e73df; color: white; font-weight: bold; }
-        .btn-main { padding: 30px 60px; font-size: 30px; background: #e94560; }
-        #roulette-display { font-size: 40px; color: #f9d423; margin-top: 20px; height: 60px; font-weight: bold; }
+        .timer { font-size: 120px; color: #ff4757; font-weight: 900; margin: 10px 0; }
+        .user-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-height: 250px; overflow-y: auto; width: 100%; }
+        .user-tag { background: #eef2f7; padding: 10px 20px; border-radius: 25px; border: 1px solid #d1d8e0; color: #4b6584; font-size: 18px; }
+        
+        .control-panel { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.8); }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 12px; border: 1px solid #ddd; background: white; color: #333; font-weight: 600; transition: 0.2s; }
+        button:hover { background: #f1f2f6; }
+        .btn-main { padding: 30px 60px; font-size: 30px; background: #4e73df; color: white; border: none; box-shadow: 0 10px 20px rgba(78,115,223,0.3); }
+        #roulette-display { font-size: 45px; color: #ffa502; margin-top: 10px; font-weight: 800; }
     </style>
 </head>
 <body>
 
     <div id="music-trigger">
-        <button class="btn-main" onclick="startShow()">🎵 음악과 함께 쇼 시작하기</button>
+        <button class="btn-main" onclick="startShow()">🎮 퀴즈쇼 시작하기 (음악 ON)</button>
     </div>
 
     <div class="main-layout">
         <div class="left-panel">
-            <h1 id="stage-title">🎬 퀴즈쇼 준비 중!</h1>
-            <h2 id="user-count">입장 인원: 0명</h2>
+            <h2 id="stage-title" style="color: #4e73df;">🎬 준비 되셨나요?</h2>
+            <div class="question-box">
+                <div id="q-text">참여자를 기다리고 있습니다</div>
+                <div id="timer-display" class="timer">--</div>
+            </div>
             <div id="roulette-display"></div>
-            <div id="timer-display" class="timer">--</div>
+            <h3 id="user-count">현재 0명 입장</h3>
             <div id="user-display" class="user-list"></div>
         </div>
 
         <div class="right-panel">
-            <h3>지금 바로 접속하세요!</h3>
+            <h3 style="margin-bottom: 20px;">지금 바로 스캔!</h3>
             <div class="qr-box">
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://jisoodw.github.io/my-quiz-show/index.html" alt="접속 QR코드">
             </div>
-            <p style="margin-top: 15px; color: #aaa;">스마트폰으로 QR을 스캔하세요</p>
+            <p style="color: #888; font-weight: 500; margin-top: 20px;">@jisoodw Quiz Show</p>
         </div>
     </div>
 
     <div class="control-panel">
-        <button onclick="controlGame(1, 20, 2)">1번 문제</button>
-        <button onclick="controlGame(2, 20, 4)">2번 문제</button>
-        <button onclick="controlGame(3, 20, 1)">3번 문제</button>
-        <button onclick="spinRoulette('correct')" style="background: #28a745;">정답자 추첨</button>
-        <button onclick="spinRoulette('everyone')" style="background: #f9d423; color: #1a1a2e;">행운상 뽑기</button>
+        <button onclick="controlGame(1)">1번 문제</button>
+        <button onclick="controlGame(2)">2번 문제</button>
+        <button onclick="controlGame(3)">3번 문제</button>
+        <button onclick="spinRoulette('correct')" style="background: #2ed573; color: white; border: none;">정답자 추첨</button>
+        <button onclick="spinRoulette('everyone')" style="background: #ffa502; color: white; border: none;">행운상 뽑기</button>
     </div>
 
     <audio id="bgm" src="audio/bgm.mp3" loop preload="auto"></audio>
     <audio id="sfx_win" src="audio/success.mp3" preload="auto"></audio>
 
     <script>
+        // ★ 지수님이 수정할 퀴즈 내용 ★
+        const quizData = {
+            1: { q: "대웅제약의 대표 비타민 이름은 무엇일까요?", options: ["임팩타민", "우루사", "에너씨슬", "이지덤"], ans: 1, time: 20 },
+            2: { q: "오늘 퀴즈쇼의 주최자 이름은?", options: ["최지수", "조지수", "이지수", "박지수"], ans: 1, time: 15 },
+            3: { q: "바이브 코딩을 도와주는 AI의 이름은?", options: ["제미나이", "챗GPT", "클로드", "아틀라스"], ans: 1, time: 15 }
+        };
+
         const firebaseConfig = {
             apiKey: "AIzaSyCAUursZJpOAMzBtl8HXapaeJRzzQ3TNBo",
             authDomain: "quiz-show-9a233.firebaseapp.com",
@@ -87,30 +96,37 @@
         let currentQNum = 0;
 
         function startShow() {
-            document.getElementById('bgm').volume = 0.4;
+            document.getElementById('bgm').volume = 0.3;
             document.getElementById('bgm').play();
             document.getElementById('music-trigger').style.display = 'none';
         }
 
-        // 실시간 접속자 목록 업데이트 (애니메이션 효과 포함)
         db.collection("participants").orderBy("joinedAt", "desc").onSnapshot((snapshot) => {
             const display = document.getElementById('user-display');
             display.innerHTML = "";
-            document.getElementById('user-count').innerText = `입장 인원: ${snapshot.size}명`;
+            document.getElementById('user-count').innerText = `현재 ${snapshot.size}명 입장`;
             snapshot.forEach((doc) => {
-                const user = doc.data();
-                display.innerHTML += `<div class="user-tag">${user.name}</div>`;
+                display.innerHTML += `<div class="user-tag">${doc.data().name}</div>`;
             });
         });
 
-        async function controlGame(qNum, time, ans) {
-            currentCorrectAns = ans;
+        async function controlGame(qNum) {
+            const data = quizData[qNum];
+            currentCorrectAns = data.ans;
             currentQNum = qNum;
-            document.getElementById('stage-title').innerText = `${qNum}번 문제 진행 중!`;
-            document.getElementById('roulette-display').innerText = "";
-            await db.collection("game").doc("state").set({ status: "playing", currentQ: qNum });
             
-            let timeLeft = time;
+            document.getElementById('q-text').innerText = `Q${qNum}. ${data.q}`;
+            document.getElementById('stage-title').innerText = "문제가 공개되었습니다!";
+            document.getElementById('roulette-display').innerText = "";
+
+            await db.collection("game").doc("state").set({ 
+                status: "playing", 
+                currentQ: qNum,
+                question: data.q,
+                options: data.options
+            });
+            
+            let timeLeft = data.time;
             const timerInterval = setInterval(() => {
                 document.getElementById('timer-display').innerText = timeLeft;
                 if(timeLeft <= 0) {
@@ -123,7 +139,7 @@
 
         async function finishQuestion() {
             await db.collection("game").doc("state").update({ status: "waiting" });
-            document.getElementById('stage-title').innerText = `${currentQNum}번 종료! 정답은 ${currentCorrectAns}번`;
+            document.getElementById('stage-title').innerText = "시간 종료!";
             document.getElementById('timer-display').innerText = "DONE";
         }
 
@@ -136,19 +152,19 @@
                 else if(type === 'everyone') candidates.push(user.name);
             });
 
-            if(candidates.length === 0) return alert("대상자가 없습니다!");
+            if(candidates.length === 0) return alert("추첨 대상자가 없습니다!");
 
             let count = 0;
             const spin = setInterval(() => {
                 document.getElementById('roulette-display').innerText = "🎲 " + candidates[count % candidates.length];
                 count++;
-                if(count > 20) {
+                if(count > 25) {
                     clearInterval(spin);
                     const winner = candidates[Math.floor(Math.random() * candidates.length)];
-                    document.getElementById('roulette-display').innerHTML = `🎊 <span style="font-size: 1.2em;">${winner}</span>님 당첨! 🎊`;
+                    document.getElementById('roulette-display').innerHTML = `🎊 <span style="color:#4e73df">${winner}</span>님 당첨! 🎊`;
                     document.getElementById('sfx_win').play();
                 }
-            }, 100);
+            }, 80);
         }
     </script>
 </body>
