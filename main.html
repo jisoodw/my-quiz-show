@@ -133,13 +133,11 @@
         let quizData = {};
         let currentQNum = 0;
         let winners = new Set();
+        let timerInterval;
 
-        // 1. 쇼 시작 버튼 (무조건 화면부터 넘기기)
         function startShow() {
-            // UI를 먼저 숨겨서 '반응 없음' 방지
             document.getElementById('music-trigger').style.display = 'none';
             
-            // QR 생성 및 음악 재생 시도 (에러 나도 멈추지 않게 방어 코드)
             try {
                 document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://jisoodw.github.io/my-quiz-show/index.html`;
                 const bgm = document.getElementById('bgm');
@@ -147,7 +145,6 @@
                 bgm.play().catch(e => console.log("음악 자동재생 차단됨"));
             } catch(e) { console.log("초기 설정 오류 무시:", e); }
 
-            // 데이터 연동 시작
             loadQuizData();
             listenParticipants();
         }
@@ -171,8 +168,10 @@
         }
 
         async function goToQuiz(qNum) {
+            clearInterval(timerInterval);
             currentQNum = qNum;
             const data = quizData[qNum] || { q: "문제를 설정해주세요", options: ["1","2","3","4"], ans: 1 };
+            
             showPage('page-quiz');
             document.getElementById('quiz-header').innerText = `${qNum}번 문제 진행 중`;
             document.getElementById('q-text').innerText = data.q;
@@ -187,10 +186,10 @@
 
             let time = 20;
             const timerDisplay = document.getElementById('timer-display');
-            const timer = setInterval(() => {
+            timerInterval = setInterval(() => {
                 timerDisplay.innerText = time;
                 if(time <= 0) {
-                    clearInterval(timer);
+                    clearInterval(timerInterval);
                     showResult();
                 }
                 time--;
@@ -279,7 +278,15 @@
                     3: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 }
                 };
                 renderAdmin();
-            } catch(e) { console.log("데이터 로드 오류:", e); }
+            } catch(e) { 
+                console.log("데이터 로드 오류:", e); 
+                quizData = {
+                    1: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
+                    2: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 },
+                    3: { q: "질문을 설정해주세요", options: ["보기1","보기2","보기3","보기4"], ans: 1 }
+                };
+                renderAdmin();
+            }
         }
 
         function renderAdmin() {
