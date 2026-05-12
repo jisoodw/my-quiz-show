@@ -115,7 +115,7 @@
                 const options = data.options || [];
 
                 // ===== 화면 갱신 결정 =====
-                if (currentStatus === "playing") {
+                if (currentStatus === "playing" && currentQ > 0) {
                     // 새로운 문제가 시작됐는지 체크 (lastSeenQ와 비교)
                     const isNewQuestion = (currentQ !== lastSeenQ);
 
@@ -130,16 +130,32 @@
                     } else {
                         showQuestionScreen(currentQ, options);
                     }
-                } else {
-                    // status가 "playing"이 아닐 때 (waiting, 결과 발표 등)
+                } else if (currentStatus === "waiting") {
+                    // 문제와 문제 사이 결과 발표 시간
                     document.getElementById('status-text').innerText = "📺 스크린의 결과를 확인해주세요!";
                     document.getElementById('options-area').innerHTML = "";
+                } else {
+                    // ready / 빈 값 / 처음 입장 → 게임 시작 전 대기 화면
+                    showWaitingScreen();
                 }
             }, (error) => {
                 // listener 자체에서 오류 발생 시 (네트워크 끊김 등)
                 console.log("연결 오류, 재시도합니다:", error);
                 setTimeout(() => listenGame(), 2000);
             });
+        }
+
+        // ===== 게임 시작 전 대기 화면 =====
+        function showWaitingScreen() {
+            document.getElementById('status-text').innerText = "🎉 입장 완료! 잠시만 기다려주세요";
+            document.getElementById('options-area').innerHTML = `
+                <div class="submitted-box" style="background: #eef2ff; border-color: #4e73df;">
+                    <h3 style="color: #4e73df;">곧 퀴즈쇼가 시작됩니다 ⏳</h3>
+                    <p>스크린을 봐주세요! 😊</p>
+                </div>
+            `;
+            // 새 게임 시작 대비: 이전 문제 기록 초기화
+            lastSeenQ = 0;
         }
 
         // ===== 문제 보기 화면 표시 =====
@@ -166,7 +182,11 @@
 
         // ===== 답안 제출 =====
         async function submitAnswer(num, qNum) {
-            // 이중 제출 방지: 이미 이 문제에 답했으면 무시
+            // 안전장치 1: 게임 상태가 playing이 아니면 무시
+            if (currentStatus !== "playing") {
+                return;
+            }
+            // 안전장치 2: 이중 제출 방지 - 이미 이 문제에 답했으면 무시
             if (submittedQuestions[qNum]) {
                 return;
             }
@@ -205,17 +225,20 @@
                         const currentQ = data.currentQ || 0;
                         // 마지막으로 본 문제와 다르면 화면 강제 갱신
                         if (currentQ !== lastSeenQ || currentStatus !== data.status) {
-                            lastSeenQ = currentQ;
                             currentStatus = data.status || "";
-                            if (currentStatus === "playing") {
+                            if (currentStatus === "playing" && currentQ > 0) {
+                                lastSeenQ = currentQ;
                                 if (submittedQuestions[currentQ]) {
                                     showSubmittedScreen(currentQ, submittedQuestions[currentQ]);
                                 } else {
                                     showQuestionScreen(currentQ, data.options || []);
                                 }
-                            } else {
+                            } else if (currentStatus === "waiting") {
                                 document.getElementById('status-text').innerText = "📺 스크린의 결과를 확인해주세요!";
                                 document.getElementById('options-area').innerHTML = "";
+                            } else {
+                                // 대기 상태
+                                showWaitingScreen();
                             }
                         }
                     }
