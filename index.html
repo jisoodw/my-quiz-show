@@ -54,22 +54,54 @@
         let submittedQuestions = {}; // 내가 제출한 문제들 { 1: 3, 2: 1 } = 1번에 3번, 2번에 1번 제출
         let currentStatus = "";      // 현재 게임 상태
         let unsubscribe = null;      // listener 해제 함수 (재연결용)
+        let participantCheckDone = false; // 참여자 DB 자가확인 완료 여부
 
         // ===== 페이지 로드 시 자동 복구 =====
         // 새로고침해도 이름이 저장돼 있으면 자동 입장
-        window.addEventListener('load', () => {
+        // 단, 그 사이 게임이 초기화됐다면(resetAt > joinedTime) 자동 입장하지 않음
+        window.addEventListener('load', async () => {
             const savedName = localStorage.getItem('quizUserName');
             const savedSubmitted = localStorage.getItem('quizSubmitted');
-            if (savedName) {
-                myName = savedName;
-                if (savedSubmitted) {
-                    try { submittedQuestions = JSON.parse(savedSubmitted); } catch(e) { submittedQuestions = {}; }
+            const savedJoinedTime = parseInt(localStorage.getItem('quizJoinedTime') || '0');
+
+            if (!savedName) return;
+
+            // 게임이 초기화됐는지 먼저 확인
+            try {
+                const stateDoc = await db.collection("game").doc("state").get();
+                if (stateDoc.exists) {
+                    const data = stateDoc.data();
+                    // resetAt이 내 입장 시각보다 최근이면 → 다시 입장해야 함
+                    if (data.resetAt && savedJoinedTime && data.resetAt > savedJoinedTime) {
+                        // 조용히 저장 데이터만 삭제 (alert는 띄우지 않음 - 첫 진입이라 어색함)
+                        localStorage.removeItem('quizUserName');
+                        localStorage.removeItem('quizSubmitted');
+                        localStorage.removeItem('quizJoinedTime');
+                        return;
+                    }
                 }
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('quiz-section').style.display = 'block';
-                document.getElementById('my-name-tag').innerText = `👤 ${myName}`;
-                listenGame();
+                // 참여자 DB에 내 이름이 있는지도 확인
+                const myDoc = await db.collection("participants").doc(savedName).get();
+                if (!myDoc.exists) {
+                    localStorage.removeItem('quizUserName');
+                    localStorage.removeItem('quizSubmitted');
+                    localStorage.removeItem('quizJoinedTime');
+                    return;
+                }
+            } catch (e) {
+                console.log("자동 복구 확인 오류:", e);
             }
+
+            // 정상적으로 자동 입장
+            myName = savedName;
+            if (savedSubmitted) {
+                try { submittedQuestions = JSON.parse(savedSubmitted); } catch(e) { submittedQuestions = {}; }
+            }
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('quiz-section').style.display = 'block';
+            document.getElementById('my-name-tag').innerText = `👤 ${myName}`;
+            participantCheckDone = true; // 이미 위에서 확인했으니 다시 안 함
+            listenGame();
         });
 
         async function joinGame() {
@@ -79,8 +111,10 @@
             try {
                 await db.collection("participants").doc(myName).set({ name: myName, joinedAt: new Date() });
                 // 입장 정보를 휴대폰에 저장 (새로고침 대비)
+                // joinedTime: 게임 초기화 시각(resetAt)과 비교해서 "내 입장이 옛날 거였구나" 감지용
                 localStorage.setItem('quizUserName', myName);
                 localStorage.setItem('quizSubmitted', JSON.stringify({}));
+                localStorage.setItem('quizJoinedTime', String(Date.now()));
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('quiz-section').style.display = 'block';
                 document.getElementById('my-name-tag').innerText = `👤 ${myName}`;
@@ -96,7 +130,7 @@
             // 기존 listener가 있으면 해제 (중복 방지)
             if (unsubscribe) { unsubscribe(); }
 
-            unsubscribe = db.collection("game").doc("state").onSnapshot((doc) => {
+            unsubscribe = db.collection("game").doc("state").onSnapshot(async (doc) => {
                 // 안전장치: 문서가 없거나 비어있어도 에러 안 나게
                 if (!doc.exists) {
                     document.getElementById('status-text').innerText = "게임 시작을 기다리는 중...";
@@ -108,6 +142,31 @@
                     document.getElementById('status-text').innerText = "게임 시작을 기다리는 중...";
                     document.getElementById('options-area').innerHTML = "";
                     return;
+                }
+
+                // ===== 자가진단 1: 게임이 초기화됐는지 확인 (resetAt 비교) =====
+                // 메인 화면에서 "처음부터 다시 시작" 누르면 resetAt이 갱신됨
+                // 내 입장 시각보다 resetAt이 더 최근이면 → 나는 이전 게임 사람이니까 자동 리셋
+                const myJoinedTime = parseInt(localStorage.getItem('quizJoinedTime') || '0');
+                if (data.resetAt && myJoinedTime && data.resetAt > myJoinedTime) {
+                    forceResetToLogin("🎬 새 게임이 시작되었습니다! 다시 입장해주세요");
+                    return;
+                }
+
+                // ===== 자가진단 2: 내 이름이 참여자 DB에 있는지 확인 (이중 안전장치) =====
+                // 어떤 이유로든 내가 참여자 명단에서 사라졌다면 (예: 관리자가 삭제) 다시 입장
+                // 단, 첫 listener 호출 시 한 번만 (불필요한 DB 호출 줄이기 위해)
+                if (myName && !participantCheckDone) {
+                    participantCheckDone = true;
+                    try {
+                        const myDoc = await db.collection("participants").doc(myName).get();
+                        if (!myDoc.exists) {
+                            forceResetToLogin("🎬 새 게임이 시작되었습니다! 다시 입장해주세요");
+                            return;
+                        }
+                    } catch (e) {
+                        console.log("참여자 확인 오류:", e);
+                    }
                 }
 
                 currentStatus = data.status || "";
@@ -143,6 +202,31 @@
                 console.log("연결 오류, 재시도합니다:", error);
                 setTimeout(() => listenGame(), 2000);
             });
+        }
+
+        // ===== 게임이 초기화됐을 때 입장 화면으로 강제 복귀 =====
+        function forceResetToLogin(message) {
+            // listener 해제
+            if (unsubscribe) {
+                try { unsubscribe(); } catch(e) {}
+                unsubscribe = null;
+            }
+            // 저장된 데이터 모두 삭제
+            localStorage.removeItem('quizUserName');
+            localStorage.removeItem('quizSubmitted');
+            localStorage.removeItem('quizJoinedTime');
+            // 상태 변수 초기화
+            myName = "";
+            lastSeenQ = 0;
+            submittedQuestions = {};
+            currentStatus = "";
+            participantCheckDone = false;
+            // 입장 화면으로 복귀
+            document.getElementById('quiz-section').style.display = 'none';
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('userName').value = '';
+            // 알림 (참여자가 명확히 인지하도록)
+            if (message) alert(message);
         }
 
         // ===== 게임 시작 전 대기 화면 =====
