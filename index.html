@@ -2,19 +2,24 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>퀴즈 참여</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 20px; background: #f5f6fa; color: #333; }
+        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 20px; background: #f5f6fa; color: #333; -webkit-tap-highlight-color: transparent; }
         .card { background: white; padding: 25px; border-radius: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 20px; }
         input { width: 90%; padding: 15px; margin: 15px 0; border: 2px solid #eee; border-radius: 15px; font-size: 18px; outline: none; }
         button { width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
         .btn-join { background: #4e73df; color: white; }
-        .opt-btn { background: white; border: 2px solid #4e73df; color: #4e73df; margin-bottom: 12px; font-size: 18px; text-align: left; padding-left: 25px; }
-        .opt-btn:active { background: #4e73df; color: white; }
-        #status-text { font-weight: 600; color: #4e73df; margin-bottom: 20px; }
+        .opt-btn { background: white; border: 2px solid #4e73df; color: #4e73df; margin-bottom: 12px; font-size: 18px; text-align: left; padding-left: 25px; transition: all 0.15s; }
+        .opt-btn:active { background: #4e73df; color: white; transform: scale(0.98); }
+        #status-text { font-weight: 600; color: #4e73df; margin-bottom: 20px; font-size: 18px; }
+        .submitted-box { background: #d1f7d1; border: 2px solid #2ed573; border-radius: 15px; padding: 25px; margin-top: 10px; }
+        .submitted-box h3 { color: #1b5e20; margin: 0 0 8px 0; }
+        .submitted-box p { color: #555; margin: 0; font-size: 16px; }
+        .my-name { color: #4e73df; font-weight: bold; }
+        .name-tag { background: #eef2f7; padding: 8px 15px; border-radius: 20px; display: inline-block; margin-bottom: 15px; font-size: 14px; color: #666; }
     </style>
 </head>
 <body>
@@ -26,6 +31,7 @@
     </div>
 
     <div id="quiz-section" style="display:none;" class="card">
+        <div class="name-tag" id="my-name-tag"></div>
         <div id="status-text">준비 중...</div>
         <div id="options-area"></div>
     </div>
@@ -42,41 +48,191 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // ===== 상태 관리 변수 =====
         let myName = "";
+        let lastSeenQ = 0;          // 마지막으로 본 문제 번호 (다음 문제 감지용)
+        let submittedQuestions = {}; // 내가 제출한 문제들 { 1: 3, 2: 1 } = 1번에 3번, 2번에 1번 제출
+        let currentStatus = "";      // 현재 게임 상태
+        let unsubscribe = null;      // listener 해제 함수 (재연결용)
+
+        // ===== 페이지 로드 시 자동 복구 =====
+        // 새로고침해도 이름이 저장돼 있으면 자동 입장
+        window.addEventListener('load', () => {
+            const savedName = localStorage.getItem('quizUserName');
+            const savedSubmitted = localStorage.getItem('quizSubmitted');
+            if (savedName) {
+                myName = savedName;
+                if (savedSubmitted) {
+                    try { submittedQuestions = JSON.parse(savedSubmitted); } catch(e) { submittedQuestions = {}; }
+                }
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('quiz-section').style.display = 'block';
+                document.getElementById('my-name-tag').innerText = `👤 ${myName}`;
+                listenGame();
+            }
+        });
 
         async function joinGame() {
-            myName = document.getElementById('userName').value;
-            if(!myName) return alert("이름을 입력하세요!");
-            await db.collection("participants").doc(myName).set({ name: myName, joinedAt: new Date() });
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('quiz-section').style.display = 'block';
-            listenGame();
+            const name = document.getElementById('userName').value.trim();
+            if (!name) return alert("이름을 입력하세요!");
+            myName = name;
+            try {
+                await db.collection("participants").doc(myName).set({ name: myName, joinedAt: new Date() });
+                // 입장 정보를 휴대폰에 저장 (새로고침 대비)
+                localStorage.setItem('quizUserName', myName);
+                localStorage.setItem('quizSubmitted', JSON.stringify({}));
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('quiz-section').style.display = 'block';
+                document.getElementById('my-name-tag').innerText = `👤 ${myName}`;
+                listenGame();
+            } catch (e) {
+                alert("입장 중 오류가 발생했어요. 다시 시도해주세요.");
+                console.log("입장 오류:", e);
+            }
         }
 
+        // ===== 게임 상태 감지 (핵심 로직) =====
         function listenGame() {
-            db.collection("game").doc("state").onSnapshot((doc) => {
-                const data = doc.data();
-                const area = document.getElementById('options-area');
-                if(data.status === "playing") {
-                    document.getElementById('status-text').innerText = "문제가 시작되었습니다! 정답을 고르세요.";
-                    area.innerHTML = "";
-                    data.options.forEach((opt, index) => {
-                        area.innerHTML += `<button class="opt-btn" onclick="submitAnswer(${index + 1})">${index + 1}. ${opt}</button>`;
-                    });
-                } else {
-                    document.getElementById('status-text').innerText = "스크린의 결과를 확인해주세요!";
-                    area.innerHTML = "";
+            // 기존 listener가 있으면 해제 (중복 방지)
+            if (unsubscribe) { unsubscribe(); }
+
+            unsubscribe = db.collection("game").doc("state").onSnapshot((doc) => {
+                // 안전장치: 문서가 없거나 비어있어도 에러 안 나게
+                if (!doc.exists) {
+                    document.getElementById('status-text').innerText = "게임 시작을 기다리는 중...";
+                    document.getElementById('options-area').innerHTML = "";
+                    return;
                 }
+                const data = doc.data();
+                if (!data) {
+                    document.getElementById('status-text').innerText = "게임 시작을 기다리는 중...";
+                    document.getElementById('options-area').innerHTML = "";
+                    return;
+                }
+
+                currentStatus = data.status || "";
+                const currentQ = data.currentQ || 0;
+                const options = data.options || [];
+
+                // ===== 화면 갱신 결정 =====
+                if (currentStatus === "playing") {
+                    // 새로운 문제가 시작됐는지 체크 (lastSeenQ와 비교)
+                    const isNewQuestion = (currentQ !== lastSeenQ);
+
+                    if (isNewQuestion) {
+                        // 새 문제! 화면을 무조건 새로 그림
+                        lastSeenQ = currentQ;
+                    }
+
+                    // 이 문제에 이미 답을 제출했는지 확인
+                    if (submittedQuestions[currentQ]) {
+                        showSubmittedScreen(currentQ, submittedQuestions[currentQ]);
+                    } else {
+                        showQuestionScreen(currentQ, options);
+                    }
+                } else {
+                    // status가 "playing"이 아닐 때 (waiting, 결과 발표 등)
+                    document.getElementById('status-text').innerText = "📺 스크린의 결과를 확인해주세요!";
+                    document.getElementById('options-area').innerHTML = "";
+                }
+            }, (error) => {
+                // listener 자체에서 오류 발생 시 (네트워크 끊김 등)
+                console.log("연결 오류, 재시도합니다:", error);
+                setTimeout(() => listenGame(), 2000);
             });
         }
 
-        async function submitAnswer(num) {
-            const stateDoc = await db.collection("game").doc("state").get();
-            const currentQ = stateDoc.data().currentQ;
-            await db.collection("participants").doc(myName).update({ [`ans${currentQ}`]: num });
-            alert(num + "번 정답을 제출했습니다!");
-            document.getElementById('options-area').innerHTML = "<h3>제출 완료! 기다려주세요.</h3>";
+        // ===== 문제 보기 화면 표시 =====
+        function showQuestionScreen(qNum, options) {
+            document.getElementById('status-text').innerText = `📝 ${qNum}번 문제 - 정답을 고르세요!`;
+            const area = document.getElementById('options-area');
+            let html = "";
+            options.forEach((opt, index) => {
+                html += `<button class="opt-btn" onclick="submitAnswer(${index + 1}, ${qNum})">${index + 1}. ${opt}</button>`;
+            });
+            area.innerHTML = html;
         }
+
+        // ===== 제출 완료 화면 표시 =====
+        function showSubmittedScreen(qNum, myAnswer) {
+            document.getElementById('status-text').innerText = `✅ ${qNum}번 문제 답안 제출 완료`;
+            document.getElementById('options-area').innerHTML = `
+                <div class="submitted-box">
+                    <h3>${myAnswer}번 제출 완료!</h3>
+                    <p>다음 문제를 기다려주세요 😊</p>
+                </div>
+            `;
+        }
+
+        // ===== 답안 제출 =====
+        async function submitAnswer(num, qNum) {
+            // 이중 제출 방지: 이미 이 문제에 답했으면 무시
+            if (submittedQuestions[qNum]) {
+                return;
+            }
+            // 즉시 제출 처리 (UI 먼저 바꿔서 중복 클릭 방지)
+            submittedQuestions[qNum] = num;
+            localStorage.setItem('quizSubmitted', JSON.stringify(submittedQuestions));
+            showSubmittedScreen(qNum, num);
+
+            try {
+                await db.collection("participants").doc(myName).set({
+                    [`ans${qNum}`]: num
+                }, { merge: true });
+            } catch (e) {
+                // 제출 실패 시 롤백
+                console.log("제출 오류:", e);
+                delete submittedQuestions[qNum];
+                localStorage.setItem('quizSubmitted', JSON.stringify(submittedQuestions));
+                alert("제출 중 오류가 발생했어요. 다시 시도해주세요.");
+                // 다시 보기 화면으로 복귀
+                const stateDoc = await db.collection("game").doc("state").get();
+                if (stateDoc.exists) {
+                    showQuestionScreen(qNum, stateDoc.data().options || []);
+                }
+            }
+        }
+
+        // ===== 모바일 백그라운드 → 복귀 시 강제 동기화 =====
+        // 화면 잠금/다른 앱 보다가 돌아왔을 때 현재 상태를 다시 가져옴
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && myName) {
+                try {
+                    // 강제로 최신 상태 가져오기
+                    const stateDoc = await db.collection("game").doc("state").get();
+                    if (stateDoc.exists) {
+                        const data = stateDoc.data();
+                        const currentQ = data.currentQ || 0;
+                        // 마지막으로 본 문제와 다르면 화면 강제 갱신
+                        if (currentQ !== lastSeenQ || currentStatus !== data.status) {
+                            lastSeenQ = currentQ;
+                            currentStatus = data.status || "";
+                            if (currentStatus === "playing") {
+                                if (submittedQuestions[currentQ]) {
+                                    showSubmittedScreen(currentQ, submittedQuestions[currentQ]);
+                                } else {
+                                    showQuestionScreen(currentQ, data.options || []);
+                                }
+                            } else {
+                                document.getElementById('status-text').innerText = "📺 스크린의 결과를 확인해주세요!";
+                                document.getElementById('options-area').innerHTML = "";
+                            }
+                        }
+                    }
+                    // listener도 다시 살림 (혹시 끊겼을 경우 대비)
+                    if (!unsubscribe) listenGame();
+                } catch (e) {
+                    console.log("복귀 동기화 오류:", e);
+                }
+            }
+        });
+
+        // ===== 네트워크 복구 감지 =====
+        window.addEventListener('online', () => {
+            if (myName && !unsubscribe) {
+                listenGame();
+            }
+        });
     </script>
 </body>
 </html>

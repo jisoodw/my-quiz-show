@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎬 실시간 퀴즈쇼 메인 스테이지</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -26,6 +27,18 @@
         .option-item { background: white; border: 3px solid var(--primary); padding: 3vh 2vw; border-radius: 20px; font-size: clamp(24px, 2.8vw, 32px); font-weight: bold; color: var(--primary); text-align: left; }
         .timer { font-size: clamp(80px, 10vw, 120px); color: var(--accent); font-weight: 900; margin: 1vh 0; line-height: 1; }
         
+        /* 답안 제출 현황 표시 */
+        .submit-status { 
+            font-size: clamp(18px, 2vw, 24px); 
+            color: #2ed573; 
+            font-weight: 700; 
+            margin: 0.5vh 0;
+            background: #f0fff4;
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        
         .correct-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; max-height: 25vh; overflow-y: auto; width: 90%; }
         .user-tag { background: #eef2f7; padding: 10px 20px; border-radius: 25px; border: 1px solid #d1d8e0; font-weight: 600; font-size: 16px; }
         .correct-tag { background: #d1f7d1; border-color: #2ed573; color: #1b5e20; }
@@ -36,6 +49,15 @@
         .btn-blue { background: var(--primary); color: white; padding: 2vh 3vw; font-size: clamp(18px, 2.2vw, 26px); border: none; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 10px 20px rgba(78,115,223,0.2); }
         .control-bar { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 1000; }
         .btn-sub { background: #f1f2f6; color: #333; border: 1px solid #ddd; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
+        
+        /* ===== 모바일/태블릿 반응형 ===== */
+        @media (max-width: 900px) {
+            .waiting-layout { flex-direction: column; gap: 3vh; }
+            .user-grid { width: 90%; max-height: 25vh; }
+            .options-grid { grid-template-columns: 1fr; width: 95%; gap: 1.5vh; }
+            #page-final > div { flex-direction: column !important; gap: 3vh !important; }
+            #page-final > div > div { border-left: none !important; border-top: 2px solid #eee; padding-top: 2vh; }
+        }
     </style>
 </head>
 <body>
@@ -61,8 +83,9 @@
         <h2 id="quiz-header" style="color: var(--primary); margin: 0; font-size: 28px;">1번 문제 진행 중</h2>
         <div id="q-text">질문을 불러오는 중...</div>
         <div class="options-grid" id="screen-options"></div>
-        <div id="timer-display" class="timer">20</div>
-        <h3 id="live-count" style="margin: 1vh 0 0 0;">참여 인원: 0명</h3>
+        <div id="timer-display" class="timer">15</div>
+        <div id="submit-status" class="submit-status">답안 제출: 0 / 0명</div>
+        <h3 id="live-count" style="margin: 0.5vh 0 0 0;">참여 인원: 0명</h3>
     </div>
 
     <div id="page-result" class="page">
@@ -72,7 +95,7 @@
         <div class="correct-list" id="correct-users"></div>
         <div style="margin-top: 5vh; display: flex; gap: 15px;">
             <button class="btn-blue" style="background: var(--winner);" onclick="openRoulette('correct')">🎰 정답자 추첨</button>
-            <button class="btn-blue" id="next-btn" onclick="goToQuiz(2)">다음 문제로 ➡️</button>
+            <button class="btn-blue" id="next-btn" onclick="goToNextQuestion()">다음 문제로 ➡️</button>
             <button class="btn-blue" id="final-btn" style="display:none;" onclick="showFinalResult()">전체 결과 보기 🏁</button>
         </div>
     </div>
@@ -119,6 +142,10 @@
     <audio id="sfx_drum" src="audio/drum.mp3" preload="auto"></audio>
 
     <script>
+        // ===== 설정 (한 곳에서 관리) =====
+        const TOTAL_Q = 3;        // 총 문제 개수
+        const TIMER_SEC = 15;     // 문제당 제한 시간 (초)
+
         const firebaseConfig = {
             apiKey: "AIzaSyCAUursZJpOAMzBtl8HXapaeJRzzQ3TNBo",
             authDomain: "quiz-show-9a233.firebaseapp.com",
@@ -134,6 +161,7 @@
         let currentQNum = 0;
         let winners = new Set();
         let timerInterval;
+        let totalParticipants = 0;  // 전체 참여 인원 (실시간 갱신)
 
         function startShow() {
             document.getElementById('music-trigger').style.display = 'none';
@@ -152,17 +180,47 @@
             document.getElementById(id).classList.add('active');
         }
 
+        // ===== 참여자 실시간 감지 (입장 + 답안 제출 현황) =====
         function listenParticipants() {
             db.collection("participants").onSnapshot(snap => {
+                totalParticipants = snap.size;
+
+                // 대기 페이지 - 입장자 목록
                 const list = document.getElementById('user-display');
-                if(!list) return;
-                list.innerHTML = "";
+                if (list) {
+                    list.innerHTML = "";
+                    snap.forEach(doc => {
+                        list.innerHTML += `<div class="user-tag">${doc.id}</div>`;
+                    });
+                }
                 document.getElementById('user-count').innerText = `입장 인원: ${snap.size}명`;
                 document.getElementById('live-count').innerText = `참여 인원: ${snap.size}명`;
-                snap.forEach(doc => {
-                    list.innerHTML += `<div class="user-tag">${doc.id}</div>`;
-                });
+
+                // 퀴즈 페이지 - 답안 제출 현황 실시간 갱신
+                updateSubmitStatus(snap);
             });
+        }
+
+        // ===== 답안 제출 현황 업데이트 =====
+        function updateSubmitStatus(snap) {
+            if (currentQNum === 0) return;
+            let submitted = 0;
+            snap.forEach(doc => {
+                if (doc.data()[`ans${currentQNum}`] !== undefined) submitted++;
+            });
+            const statusEl = document.getElementById('submit-status');
+            if (statusEl) {
+                statusEl.innerText = `답안 제출: ${submitted} / ${snap.size}명`;
+                // 모두 제출했으면 색상 변경 (사회자가 한눈에)
+                if (snap.size > 0 && submitted === snap.size) {
+                    statusEl.style.background = '#fff4e0';
+                    statusEl.style.color = '#e67700';
+                    statusEl.innerText = `✨ 전원 제출 완료! (${submitted}/${snap.size})`;
+                } else {
+                    statusEl.style.background = '#f0fff4';
+                    statusEl.style.color = '#2ed573';
+                }
+            }
         }
 
         async function goToQuiz(qNum) {
@@ -177,21 +235,51 @@
             data.options.forEach((opt, idx) => {
                 optGrid.innerHTML += `<div class="option-item">${idx+1}. ${opt}</div>`;
             });
-            await db.collection("game").doc("state").set({ status: "playing", currentQ: qNum, options: data.options });
-            let time = 20;
+
+            // 답안 제출 현황 초기화
+            const statusEl = document.getElementById('submit-status');
+            statusEl.style.background = '#f0fff4';
+            statusEl.style.color = '#2ed573';
+            statusEl.innerText = `답안 제출: 0 / ${totalParticipants}명`;
+
+            // Firestore에 새 문제 상태 저장 (merge 방식 + timestamp로 휴대폰이 새 신호 확실히 감지)
+            await db.collection("game").doc("state").set({
+                status: "playing",
+                currentQ: qNum,
+                options: data.options,
+                lastUpdate: Date.now()
+            }, { merge: true });
+
+            // 타이머 시작 (1초 딜레이 제거: 시작하자마자 숫자 표시)
+            let time = TIMER_SEC;
             const timerDisplay = document.getElementById('timer-display');
+            timerDisplay.innerText = time;
             timerInterval = setInterval(() => {
-                timerDisplay.innerText = time;
-                if(time <= 0) { clearInterval(timerInterval); showResult(); }
                 time--;
+                timerDisplay.innerText = time;
+                if (time <= 0) {
+                    clearInterval(timerInterval);
+                    showResult();
+                }
             }, 1000);
         }
 
+        // ===== 다음 문제로 이동 (단일 함수로 정리) =====
+        function goToNextQuestion() {
+            goToQuiz(currentQNum + 1);
+        }
+
         async function showResult() {
-            await db.collection("game").doc("state").update({ status: "waiting" });
+            // set + merge로 변경 (문서 없어도 안전)
+            await db.collection("game").doc("state").set({
+                status: "waiting",
+                lastUpdate: Date.now()
+            }, { merge: true });
+
             showPage('page-result');
             const data = quizData[currentQNum] || { ans: 1, options: ["?"] };
             document.getElementById('correct-answer-text').innerText = `정답: ${data.ans}번 (${data.options[data.ans-1]})`;
+            
             const snap = await db.collection("participants").get();
             const correctBox = document.getElementById('correct-users');
             correctBox.innerHTML = "";
@@ -200,13 +288,14 @@
                     correctBox.innerHTML += `<div class="user-tag correct-tag">${doc.id}</div>`;
                 }
             });
-            if(currentQNum >= 3) {
+
+            // 마지막 문제면 "전체 결과" 버튼, 아니면 "다음 문제" 버튼
+            if(currentQNum >= TOTAL_Q) {
                 document.getElementById('next-btn').style.display = 'none';
                 document.getElementById('final-btn').style.display = 'block';
             } else {
                 document.getElementById('next-btn').style.display = 'block';
                 document.getElementById('final-btn').style.display = 'none';
-                document.getElementById('next-btn').onclick = () => goToQuiz(currentQNum + 1);
             }
         }
 
@@ -216,18 +305,28 @@
             const allBox = document.getElementById('all-correct-users');
             const everyBox = document.getElementById('everyone-list');
             allBox.innerHTML = ""; everyBox.innerHTML = "";
-            
-            // 안전하게 정답 정보를 가져오는 로직 (에러 방지)
-            const ans1 = quizData[1] ? quizData[1].ans : null;
-            const ans2 = quizData[2] ? quizData[2].ans : null;
-            const ans3 = quizData[3] ? quizData[3].ans : null;
+
+            // 전체 문제의 정답을 동적으로 수집 (TOTAL_Q에 따라)
+            const answers = {};
+            let allAnswersReady = true;
+            for (let i = 1; i <= TOTAL_Q; i++) {
+                if (quizData[i] && quizData[i].ans !== undefined) {
+                    answers[i] = quizData[i].ans;
+                } else {
+                    allAnswersReady = false;
+                }
+            }
 
             snap.forEach(doc => {
                 const u = doc.data();
                 everyBox.innerHTML += `<div class="user-tag">${doc.id}</div>`;
-                // 3문제를 모두 맞힌 사람 체크 (데이터가 있을 때만 비교)
-                if(ans1 && ans2 && ans3) {
-                    if(u.ans1 == ans1 && u.ans2 == ans2 && u.ans3 == ans3) {
+                // 모든 문제를 다 맞힌 사람 체크
+                if (allAnswersReady) {
+                    let perfect = true;
+                    for (let i = 1; i <= TOTAL_Q; i++) {
+                        if (u[`ans${i}`] != answers[i]) { perfect = false; break; }
+                    }
+                    if (perfect) {
                         allBox.innerHTML += `<div class="user-tag correct-tag">${doc.id}</div>`;
                     }
                 }
@@ -237,23 +336,49 @@
         async function openRoulette(type) {
             const snap = await db.collection("participants").get();
             let candidates = [];
-            const ans1 = quizData[1] ? quizData[1].ans : null;
-            const ans2 = quizData[2] ? quizData[2].ans : null;
-            const ans3 = quizData[3] ? quizData[3].ans : null;
+
+            // 전체 문제 정답 수집 (안전하게)
+            const answers = {};
+            let allAnswersReady = true;
+            for (let i = 1; i <= TOTAL_Q; i++) {
+                if (quizData[i] && quizData[i].ans !== undefined) {
+                    answers[i] = quizData[i].ans;
+                } else {
+                    allAnswersReady = false;
+                }
+            }
 
             snap.forEach(doc => {
-                if(winners.has(doc.id)) return;
+                if (winners.has(doc.id)) return;
                 const u = doc.data();
-                if(type === 'correct' && u[`ans${currentQNum}`] == quizData[currentQNum].ans) candidates.push(doc.id);
-                else if(type === 'all' && ans1 && ans2 && ans3) {
-                    if(u.ans1 == ans1 && u.ans2 == ans2 && u.ans3 == ans3) candidates.push(doc.id);
+
+                if (type === 'correct') {
+                    // 현재 문제 정답자 (안전장치: 데이터 없으면 무시)
+                    if (quizData[currentQNum] && quizData[currentQNum].ans !== undefined
+                        && u[`ans${currentQNum}`] == quizData[currentQNum].ans) {
+                        candidates.push(doc.id);
+                    }
+                } else if (type === 'all') {
+                    // 만점자
+                    if (allAnswersReady) {
+                        let perfect = true;
+                        for (let i = 1; i <= TOTAL_Q; i++) {
+                            if (u[`ans${i}`] != answers[i]) { perfect = false; break; }
+                        }
+                        if (perfect) candidates.push(doc.id);
+                    }
+                } else if (type === 'everyone') {
+                    candidates.push(doc.id);
                 }
-                else if(type === 'everyone') candidates.push(doc.id);
             });
 
-            if(candidates.length === 0) { alert("추첨 대상이 없습니다!"); return; }
+            if (candidates.length === 0) {
+                alert("추첨 대상이 없습니다!");
+                return;
+            }
 
             document.getElementById('roulette-modal').style.display = 'flex';
+            document.getElementById('roulette-title').innerText = "추첨 중...";
             const bgm = document.getElementById('bgm');
             bgm.pause();
             const drum = document.getElementById('sfx_drum');
@@ -264,7 +389,7 @@
             const spin = setInterval(() => {
                 document.getElementById('roulette-name').innerText = candidates[count % candidates.length];
                 count++;
-                if(count >= 50) { // 80ms * 50 = 4초
+                if (count >= 50) { // 80ms * 50 = 4초
                     clearInterval(spin);
                     const winner = candidates[Math.floor(Math.random() * candidates.length)];
                     document.getElementById('roulette-name').innerText = winner;
@@ -277,11 +402,15 @@
         function closeRoulette() { 
             document.getElementById('roulette-modal').style.display = 'none'; 
             document.getElementById('roulette-title').innerText = "추첨 중..."; 
+            document.getElementById('roulette-name').innerText = "? ? ?";
             document.getElementById('sfx_drum').pause();
             document.getElementById('bgm').play().catch(e => {});
         }
 
-        function toggleAdmin() { const m = document.getElementById('admin-modal'); m.style.display = (m.style.display === 'flex') ? 'none' : 'flex'; }
+        function toggleAdmin() {
+            const m = document.getElementById('admin-modal');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        }
 
         async function loadQuizData() {
             try {
@@ -293,7 +422,7 @@
 
         function renderAdmin() {
             let h = "";
-            for(let i=1; i<=3; i++) {
+            for(let i = 1; i <= TOTAL_Q; i++) {
                 const q = quizData[i] || {q:"", options:["","","",""], ans:1};
                 h += `<div style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;"><b>${i}번 문제</b><br><input id="aq${i}" value="${q.q}" placeholder="질문" style="width:95%;"><br>
                 <input id="ao${i}" value="${q.options.join(',')}" placeholder="보기1,보기2,보기3,보기4" style="width:95%; margin-top:5px;"><br>
@@ -303,7 +432,7 @@
         }
 
         async function saveAdmin() {
-            for(let i=1; i<=3; i++) {
+            for(let i = 1; i <= TOTAL_Q; i++) {
                 quizData[i] = {
                     q: document.getElementById(`aq${i}`).value,
                     options: document.getElementById(`ao${i}`).value.split(','),
